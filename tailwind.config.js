@@ -4,7 +4,7 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "./src/Styles/global.css",  // ← Agrega esto
+    "./src/styles/global.css",  // ← Agrega esto
   ],
   safelist: [
     'sm:py-20',    // ← Fuerza esta clase
