@@ -15,7 +15,7 @@ const slides = [
   {
     id: 2,
     title: "Todas tus plataformas",
-    description: "Gestiona Netflix, Disney+, HBO y mas",
+    description: "Gestiona Neflix, Disney+, HBO y mas",
     image: slide2,
   },
   {

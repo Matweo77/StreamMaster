@@ -1,187 +1,187 @@
-import { useState, useMemo } from "react"
+"use client"
+
+import { useState, useMemo, useEffect } from "react"
 import { Plus, Search } from "lucide-react"
+
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ClientsTable } from "./client-table"
 import { ClientDialog } from "./client-dialog"
 import { DeleteClientDialog } from "./delete-client-dialog"
 
-// Datos de ejemplo
-const initialClients = [
-  {
-    id: "1",
-    nombre: "Juan Pérez",
-    whatsapp: "555-1234",
-    plataforma: "Netflix",
-    pantalla: "juan@gmail.com",
-    amount: 5,
-    perfil: "Perfil 2",
-    proximoPago: "15 Jun",
-    estado: "activo",
-  },
-  {
-    id: "2",
-    nombre: "María López",
-    whatsapp: "555-7777",
-    plataforma: "Disney+",
-    pantalla: "juan@gmail.com",
-    amount: 5,
-    perfil: "Perfil 1",
-    proximoPago: "20 Jun",
-    estado: "vencido",
-  },
-  {
-    id: "3",
-    nombre: "Carlos García",
-    whatsapp: "555-9999",
-    plataforma: "HBO Max",
-    pantalla: "juan@gmail.com",
-    amount: 4,
-    perfil: "Perfil 3",
-    proximoPago: "25 Jun",
-    estado: "activo",
-  },
-  {
-    id: "4",
-    nombre: "Ana Martínez",
-    whatsapp: "555-4444",
-    plataforma: "Amazon Prime",
-    pantalla: "juan@gmail.com",
-    amount: 12,
-    perfil: "Perfil 1",
-    proximoPago: "10 Jun",
-    estado: "pendiente",
-  },
-  {
-    id: "5",
-    nombre: "Roberto Sánchez",
-    whatsapp: "555-2222",
-    plataforma: "Netflix",
-    pantalla: "juan@gmail.com",
-    amount: 44,
-    perfil: "Perfil 4",
-    proximoPago: "05 Jun",
-    estado: "vencido",
-  },
-  {
-    id: "6",
-    nombre: "Felife buitragoz",
-    whatsapp: "335-2442",
-    plataforma: "Netflix",
-    pantalla: "juan@gmail.com",
-    amount: "5",
-    perfil: "Perfil 5",
-    proximoPago: "06 Jun",
-    estado: "vencido",
-  },
-]
+import {
+  getClientsWithDetails,
+  createClientWithSubscription,
+  getActiveAccounts,
+  updateClientWithSubscription,
+  deleteClientWithSubscription
+} from "@/services/clients.service"
 
 export default function ClientsPage() {
-  const [clients, setClients] = useState(initialClients)
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState(null)
   const [deletingClient, setDeletingClient] = useState(null)
 
-  // Filtrar clientes por búsqueda
+  // 🌟 Estado para guardar las cuentas del sistema para el primer selector
+  const [cuentas, setCuentas] = useState([])
+
+  const loadAccountsData = async () => {
+    try {
+      const data = await getActiveAccounts()
+      setCuentas(data)
+    } catch (error) {
+      console.error("❌ Error cargando cuentas:", error)
+    }
+  }
+
+  const fetchClients = async () => {
+    setLoading(true)
+    try {
+      const data = await getClientsWithDetails()
+      setClients(data)
+    } catch (error) {
+      console.error("❌ Error cargando detalles de clientes:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchClients()
+    loadAccountsData()
+  }, [])
+
+  // 🌟 Recuperamos el bloque useMemo que se había perdido para el filtro de búsquedas
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients
-    const query = searchQuery.toLowerCase()
-    return clients.filter(
-      (client) =>
-        client.nombre.toLowerCase().includes(query) ||
-        client.whatsapp.includes(query) ||
-        client.plataforma.toLowerCase().includes(query)||
-        client.pantalla.toLowerCase().includes(query)
+
+    const q = searchQuery.toLowerCase()
+
+    return clients.filter((c) =>
+      c.nombre?.toLowerCase().includes(q) ||
+      c.whatsapp?.includes(q) ||
+      c.plataforma?.toLowerCase().includes(q) ||
+      c.pantalla?.toLowerCase().includes(q)
     )
   }, [clients, searchQuery])
 
-  // Crear cliente
-  const handleCreateClient = (data) => {
-    const newClient = {
-      ...data,
-      id: Date.now().toString(),
+  const handleCreateClient = async (data) => {
+    try {
+      setLoading(true)
+      await createClientWithSubscription(data)
+      await fetchClients()
+      await loadAccountsData() // Recargamos cuentas por si cambió la disponibilidad
+      setIsCreateDialogOpen(false)
+    } catch (error) {
+      console.error("❌ Error creando cliente:", error)
+    } finally {
+      setLoading(false)
     }
-    setClients((prev) => [...prev, newClient])
-    setIsCreateDialogOpen(false)
   }
 
-  // Editar cliente
-  const handleEditClient = (data) => {
-    if (!editingClient) return
-    setClients((prev) =>
-      prev.map((client) =>
-        client.id === editingClient.id ? { ...data, id: client.id } : client
-      )
-    )
-    setEditingClient(null)
-  }
+  const handleEditClient = async (data) => {
+  if (!editingClient) return
 
-  // Eliminar cliente
-  const handleDeleteClient = () => {
-    if (!deletingClient) return
-    setClients((prev) => prev.filter((client) => client.id !== deletingClient.id))
-    setDeletingClient(null)
+  try {
+    setLoading(true) // Activamos el indicador de carga
+    
+    // Mandamos el ID de la suscripción y el formulario del modal
+    await updateClientWithSubscription(editingClient.id, data)
+    
+    // Recargamos todo desde Supabase para tener la data fresca y real
+    await fetchClients()
+    await loadAccountsData()
+    
+    setEditingClient(null) // Cerramos el modal
+  } catch (error) {
+    console.error("❌ Error editando cliente en Supabase:", error)
+  } finally {
+    setLoading(false)
   }
+}
+
+  const handleDeleteClient = async () => {
+  if (!deletingClient) return
+
+  try {
+    setLoading(true) // Activamos el estado de carga en la pantalla
+
+    // Pasamos el ID de la fila (que es el ID de la suscripción) para hacer el borrado
+    await deleteClientWithSubscription(deletingClient.id)
+
+    // Recargamos los datos frescos directamente desde la base de datos
+    await fetchClients()
+    await loadAccountsData() // Recargamos cuentas porque ahora hay un perfil libre nuevo
+
+    setDeletingClient(null) // Cerramos el modal de confirmación
+  } catch (error) {
+    console.error("❌ Error eliminando cliente en Supabase:", error)
+  } finally {
+    setLoading(false)
+  }
+}
 
   return (
     <main className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Clientes
-            </h1>
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="size-4" />
-              Nuevo Cliente
-            </Button>
-          </div>
 
-          {/* Buscador */}
-          <div className="mt-6 relative max-w-md">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar cliente..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        <div className="flex justify-between mb-8">
+          <h1 className="text-3xl font-bold">Clientes</h1>
+
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="size-4" />
+            Nuevo Cliente
+          </Button>
         </div>
 
-        {/* Tabla de clientes */}
-        <ClientsTable
-          clients={filteredClients}
-          onEdit={setEditingClient}
-          onDelete={setDeletingClient}
-        />
+        <div className="relative max-w-md mb-6">
+          <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar cliente..."
+          />
+        </div>
 
-        {/* Dialog para crear cliente */}
+        {loading ? (
+          <p>Cargando...</p>
+        ) : (
+          <ClientsTable
+            clients={filteredClients} // 🔥 ¡Solucionado! Ya existe la definición arriba
+            onEdit={setEditingClient}
+            onDelete={setDeletingClient}
+          />
+        )}
+
+        {/* Le pasamos la lista mapeada con IDs a tus modales */}
         <ClientDialog
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
           onSubmit={handleCreateClient}
           title="Nuevo Cliente"
+          pantallas={cuentas} 
         />
 
-        {/* Dialog para editar cliente */}
         <ClientDialog
           open={!!editingClient}
-          onOpenChange={(open) => !open && setEditingClient(null)}
+          onOpenChange={(o) => !o && setEditingClient(null)}
           onSubmit={handleEditClient}
           initialData={editingClient ?? undefined}
           title="Editar Cliente"
+          pantallas={cuentas}
         />
 
-        {/* Dialog para eliminar cliente */}
         <DeleteClientDialog
           open={!!deletingClient}
-          onOpenChange={(open) => !open && setDeletingClient(null)}
+          onOpenChange={(o) => !o && setDeletingClient(null)}
           onConfirm={handleDeleteClient}
           clientName={deletingClient?.nombre ?? ""}
         />
+
       </div>
     </main>
   )

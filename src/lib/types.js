@@ -1,5 +1,5 @@
 export const PLATFORMS = [
-  "Netflix",
+  "Neflix",
   "Disney+",
   "HBO Max",
   "Amazon Prime",

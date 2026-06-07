@@ -1,5 +1,3 @@
-"use client"
-
 import { MoreHorizontal, Pencil, Trash2, UserPlus, UserMinus } from "lucide-react"
 import {
   Card,
@@ -20,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const platformIcons = {
-  Netflix: (
+  Neflix: (
     <svg viewBox="0 0 24 24" className="size-6 fill-[#E50914]">
       <path d="M5.398 0v24l6.63-7.476L18.602 24V0H5.398zM8.882 3.09h2.484v13.236l-2.484-2.79V3.09zm6.236 0v10.446l-2.484 2.79V3.09h2.484z" />
     </svg>
@@ -53,6 +51,7 @@ const platformIcons = {
 }
 
 function getOccupancyColor(occupied, total) {
+  if (total === 0) return "bg-muted"
   const percentage = (occupied / total) * 100
   if (percentage < 50) return "bg-emerald-500"
   if (percentage < 80) return "bg-amber-500"
@@ -60,6 +59,7 @@ function getOccupancyColor(occupied, total) {
 }
 
 function getOccupancyTextColor(occupied, total) {
+  if (total === 0) return "text-muted-foreground"
   const percentage = (occupied / total) * 100
   if (percentage < 50) return "text-emerald-600"
   if (percentage < 80) return "text-amber-600"
@@ -67,9 +67,10 @@ function getOccupancyTextColor(occupied, total) {
 }
 
 export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign }) {
-  const occupiedProfiles = account.profiles.filter((p) => p.client).length
-  const totalProfiles = account.profiles.length
-  const occupancyPercentage = (occupiedProfiles / totalProfiles) * 100
+  // 🌟 Se filtra usando la columna 'status === occupied' de tu base de datos
+  const occupiedProfiles = account.profiles?.filter((p) => p.status === "occupied").length || 0
+  const totalProfiles = account.profiles?.length || 0
+  const occupancyPercentage = totalProfiles > 0 ? (occupiedProfiles / totalProfiles) * 100 : 0
 
   return (
     <Card className="gap-4 transition-shadow hover:shadow-md">
@@ -77,7 +78,7 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
             {platformIcons[account.platform] || (
-              <span className="text-xs font-bold">{account.platform.charAt(0)}</span>
+              <span className="text-xs font-bold">{account.platform?.charAt(0)}</span>
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -98,7 +99,7 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEdit(account)}>
                 <Pencil className="mr-2 size-4" />
-                Edit
+                Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -106,7 +107,7 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
                 onClick={() => onDelete(account)}
               >
                 <Trash2 className="mr-2 size-4" />
-                Delete
+                Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -123,7 +124,7 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
                 getOccupancyTextColor(occupiedProfiles, totalProfiles)
               )}
             >
-              {occupiedProfiles} / {totalProfiles} Profiles Occupied
+              {occupiedProfiles} / {totalProfiles} Perfiles Ocupados
             </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -140,27 +141,28 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
         {/* Profiles Section */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium text-muted-foreground">
-            Profiles
+            Perfiles
           </span>
           <div className="flex flex-wrap gap-2">
-            {account.profiles.map((profile) => (
+            {account.profiles?.map((profile) => (
               <div
                 key={profile.id}
                 className={cn(
                   "group flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors",
-                  profile.client
+                  profile.status === "occupied"
                     ? "bg-primary/10 text-primary"
                     : "bg-muted text-muted-foreground"
                 )}
               >
-                <span className="font-medium">{profile.name}</span>
-                {profile.client ? (
+                {/* 🌟 Cambiado 'profile.name' por 'profile.profile_name' */}
+                <span className="font-medium">{profile.profile_name}</span>
+                {profile.status === "occupied" ? (
                   <>
-                    <span className="text-xs">- {profile.client}</span>
+                    <span className="text-xs">- {profile.client || "Cliente"}</span>
                     <button
-                      onClick={() => onUnassign(account.id, profile.id)}
+                      onClick={() => onUnassign(profile.id)}
                       className="ml-1 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
-                      title="Unassign client"
+                      title="Desasignar cliente"
                     >
                       <UserMinus className="size-3 text-destructive" />
                     </button>
@@ -171,7 +173,7 @@ export function AccountCard({ account, onEdit, onDelete, onAssign, onUnassign })
                     className="ml-1 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground transition-colors hover:bg-primary/90"
                   >
                     <UserPlus className="size-3" />
-                    Assign
+                    Asignar
                   </button>
                 )}
               </div>

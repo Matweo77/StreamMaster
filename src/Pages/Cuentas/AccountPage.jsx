@@ -1,9 +1,9 @@
-"use client"
-
-import { useState } from "react"
+import { useEffect, useState , useMemo} from "react"
 import { Plus, Search, Filter } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+
 import {
   Select,
   SelectContent,
@@ -11,197 +11,208 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
 import { AccountCard } from "./account-card"
 import { AddAccountModal } from "./add-account-modal"
 import { AssignClientModal } from "./assign-client-modal"
+import { DeleteAccountDialog } from "./delete-account-dialog" // 🌟 Nuevo modal de borrado
 
-// Sample data
-const initialAccounts = [
-  {
-    id: "1",
-    platform: "Netflix",
-    email: "netflixfamily@gmail.com",
-    password: "password123",
-    profiles: [
-      { id: "1-1", name: "Profile 1", client: "Juan" },
-      { id: "1-2", name: "Profile 2", client: null },
-      { id: "1-3", name: "Profile 3", client: "Maria" },
-      { id: "1-4", name: "Profile 4", client: null },
-      { id: "1-5", name: "Profile 5", client: "Pedro" },
-    ],
-  },
-  {
-    id: "2",
-    platform: "Disney+",
-    email: "disney.shared@gmail.com",
-    password: "disney2024",
-    profiles: [
-      { id: "2-1", name: "Profile 1", client: "Ana" },
-      { id: "2-2", name: "Profile 2", client: "Carlos" },
-      { id: "2-3", name: "Profile 3", client: "Luis" },
-      { id: "2-4", name: "Profile 4", client: "Sofia" },
-    ],
-  },
-  {
-    id: "3",
-    platform: "HBO Max",
-    email: "hbomax.premium@gmail.com",
-    password: "hbo2024secure",
-    profiles: [
-      { id: "3-1", name: "Profile 1", client: "Miguel" },
-      { id: "3-2", name: "Profile 2", client: null },
-      { id: "3-3", name: "Profile 3", client: null },
-      { id: "3-4", name: "Profile 4", client: null },
-      { id: "3-5", name: "Profile 5", client: null },
-    ],
-  },
-  {
-    id: "4",
-    platform: "Amazon Prime",
-    email: "prime.video@outlook.com",
-    password: "amazonsecure123",
-    profiles: [
-      { id: "4-1", name: "Profile 1", client: "Elena" },
-      { id: "4-2", name: "Profile 2", client: "Roberto" },
-      { id: "4-3", name: "Profile 3", client: null },
-    ],
-  },
-  {
-    id: "5",
-    platform: "Spotify",
-    email: "spotify.family@gmail.com",
-    password: "spotify2024",
-    profiles: [
-      { id: "5-1", name: "Profile 1", client: "Laura" },
-      { id: "5-2", name: "Profile 2", client: "Diego" },
-      { id: "5-3", name: "Profile 3", client: "Carmen" },
-      { id: "5-4", name: "Profile 4", client: "Pablo" },
-      { id: "5-5", name: "Profile 5", client: "Lucia" },
-      { id: "5-6", name: "Profile 6", client: "Andres" },
-    ],
-  },
-  {
-    id: "6",
-    platform: "Apple TV+",
-    email: "appletv.shared@icloud.com",
-    password: "apple2024tv",
-    profiles: [
-      { id: "6-1", name: "Profile 1", client: null },
-      { id: "6-2", name: "Profile 2", client: null },
-      { id: "6-3", name: "Profile 3", client: null },
-      { id: "6-4", name: "Profile 4", client: null },
-    ],
-  },
+import {
+  getAccounts,
+  createAccount,
+  deleteAccount,
+  updateAccount, // 🌟 Importamos la actualización
+  assignClient,
+  unassignClient,
+} from "../../services/account.service"
+
+const platforms = [
+  "All",
+  "Neflix",
+  "Disney+",
+  "HBO Max",
+  "Amazon Prime",
+  "Spotify",
+  "Apple TV+",
 ]
 
-const platforms = ["All", "Netflix", "Disney+", "HBO Max", "Amazon Prime", "Spotify", "Apple TV+"]
-
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState(initialAccounts)
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [platformFilter, setPlatformFilter] = useState("All")
+  
+  // Estados de control de modales
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [selectedProfile, setSelectedProfile] = useState(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  
+  // 🌟 Nuevos estados para controlar la edición y eliminación
+  const [editingAccount, setEditingAccount] = useState(null)
+  const [deletingAccount, setDeletingAccount] = useState(null)
 
-  // Filter accounts based on search and platform
-  const filteredAccounts = accounts.filter((account) => {
-    const matchesSearch =
-      account.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      account.platform.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesPlatform =
-      platformFilter === "All" || account.platform === platformFilter
-    return matchesSearch && matchesPlatform
-  })
+  // ========================================
+  // LOAD ACCOUNTS
+  // ========================================
+  async function loadAccounts() {
+    try {
+      setLoading(true)
+      const data = await getAccounts()
 
-  // Handle add account
-  const handleAddAccount = (formData) => {
-    const newAccount = {
-      id: Date.now().toString(),
-      platform: formData.platform,
-      email: formData.email,
-      password: formData.password,
-      profiles: Array.from({ length: formData.profileCount }, (_, i) => ({
-        id: `${Date.now()}-${i + 1}`,
-        name: `Profile ${i + 1}`,
-        client: null,
-      })),
+      const formattedAccounts = (data || []).map((account) => ({
+        ...account,
+        platform:
+          account.platforms?.name ||
+          account.platform ||
+          "Unknown",
+        profiles: account.profiles || [],
+      }))
+
+      setAccounts(formattedAccounts)
+    } catch (error) {
+      console.error("❌ Error cargando cuentas:", error)
+    } finally {
+      setLoading(false)
     }
-    setAccounts([...accounts, newAccount])
   }
 
-  // Handle edit account
+  useEffect(() => {
+    loadAccounts()
+  }, [])
+
+  // ========================================
+  // FILTER ACCOUNTS
+  // ========================================
+  // ========================================
+  // FILTER ACCOUNTS (Optimizado y Case-Insensitive)
+  // ========================================
+  const filteredAccounts = useMemo(() => {
+    return accounts.filter((account) => {
+      // 1. Normalizar búsquedas por texto (Email o Plataforma)
+      const query = searchQuery.toLowerCase().trim()
+      const matchesSearch = 
+        !query || 
+        account.email?.toLowerCase().includes(query) ||
+        account.platform?.toLowerCase().includes(query)
+
+      // 2. Normalizar filtro de plataforma (Evita fallas por strings exactos)
+      const matchesPlatform =
+        platformFilter === "All" ||
+        account.platform?.toLowerCase() === platformFilter.toLowerCase()
+
+      return matchesSearch && matchesPlatform
+    })
+  }, [accounts, searchQuery, platformFilter]) // Re-calcula solo si cambia la data o los inputs
+
+  // ========================================
+  // ADD OR UPDATE ACCOUNT (Persistencia real en Supabase)
+  // ========================================
+  const handleAddAccountSubmit = async (formData) => {
+    try {
+      setLoading(true)
+      if (editingAccount) {
+        // Si hay una cuenta en estado 'editing', corremos la actualización
+        await updateAccount(editingAccount.id, formData)
+        setEditingAccount(null)
+      } else {
+        // Si no, es una creación limpia
+        await createAccount(formData)
+        setIsAddModalOpen(false)
+      }
+      await loadAccounts() // Recargar tabla con data fresca de la BD
+    } catch (error) {
+      console.error("❌ Error al procesar cuenta:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ========================================
+  // EDIT ACCOUNT (Abre el diálogo rellenando los datos)
+  // ========================================
   const handleEditAccount = (account) => {
-    // For now, just log - you could open an edit modal
-    console.log("Edit account:", account)
+    setEditingAccount(account)
   }
 
-  // Handle delete account
-  const handleDeleteAccount = (account) => {
-    setAccounts(accounts.filter((a) => a.id !== account.id))
+  // ========================================
+  // DELETE ACCOUNT (Confirmación real asíncrona)
+  // ========================================
+  const handleDeleteAccountConfirm = async () => {
+    if (!deletingAccount) return
+    try {
+      setLoading(true)
+      await deleteAccount(deletingAccount.id)
+      setDeletingAccount(null) // Cerrar diálogo
+      await loadAccounts()     // Refrescar interfaz
+    } catch (error) {
+      console.error("❌ Error al eliminar cuenta:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Handle assign client
+  // ========================================
+  // OPEN ASSIGN MODAL
+  // ========================================
   const handleAssign = (accountId, profileId) => {
     const account = accounts.find((a) => a.id === accountId)
-    const profile = account?.profiles.find((p) => p.id === profileId)
-    setSelectedProfile({ accountId, profileId, profileName: profile?.name })
+    const profile = account?.profiles?.find((p) => p.id === profileId)
+
+    setSelectedProfile({
+      accountId,
+      profileId,
+      profileName: profile?.profile_name, 
+    })
+
     setIsAssignModalOpen(true)
   }
 
-  const handleAssignSubmit = (clientName) => {
+  // ========================================
+  // ASSIGN CLIENT
+  // ========================================
+  const handleAssignSubmit = async (clientName) => {
     if (!selectedProfile) return
-
-    setAccounts(
-      accounts.map((account) => {
-        if (account.id === selectedProfile.accountId) {
-          return {
-            ...account,
-            profiles: account.profiles.map((profile) => {
-              if (profile.id === selectedProfile.profileId) {
-                return { ...profile, client: clientName }
-              }
-              return profile
-            }),
-          }
-        }
-        return account
-      })
-    )
+    try {
+      await assignClient(selectedProfile.profileId, clientName)
+      setIsAssignModalOpen(false)
+      await loadAccounts()
+    } catch (error) {
+      console.error("❌ Error al asignar cliente:", error)
+    }
   }
 
-  // Handle unassign client
-  const handleUnassign = (accountId, profileId) => {
-    setAccounts(
-      accounts.map((account) => {
-        if (account.id === accountId) {
-          return {
-            ...account,
-            profiles: account.profiles.map((profile) => {
-              if (profile.id === profileId) {
-                return { ...profile, client: null }
-              }
-              return profile
-            }),
-          }
-        }
-        return account
-      })
+  // ========================================
+  // UNASSIGN CLIENT
+  // ========================================
+  const handleUnassign = async (profileId) => {
+    try {
+      await unassignClient(profileId)
+      await loadAccounts()
+    } catch (error) {
+      console.error("❌ Error al desasignar cliente:", error)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-muted-foreground animate-pulse">
+          Procesando transacciones de streaming...
+        </p>
+      </div>
     )
   }
 
   return (
     <div className="flex h-screen bg-background">
-
-      {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-
-        {/* Page content */}
         <main className="flex-1 overflow-auto p-4 lg:p-6">
-          {/* Page header */}
+          
+          {/* Header */}
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Cuentas de Streaming
+            </h1>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               {/* Search */}
@@ -209,14 +220,14 @@ export default function AccountsPage() {
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search account or platform..."
+                  placeholder="Buscar cuenta o plataforma..."
                   className="w-full pl-9 sm:w-70"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
-              {/* Platform filter */}
+              {/* Filter */}
               <Select value={platformFilter} onValueChange={setPlatformFilter}>
                 <SelectTrigger className="w-full sm:w-37.5">
                   <Filter className="mr-2 size-4" />
@@ -225,68 +236,73 @@ export default function AccountsPage() {
                 <SelectContent>
                   {platforms.map((platform) => (
                     <SelectItem key={platform} value={platform}>
-                      {platform}
+                      {platform === "All" ? "Todas" : platform}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              {/* Add account button */}
+              {/* Add */}
               <Button onClick={() => setIsAddModalOpen(true)}>
                 <Plus className="mr-2 size-4" />
-                Add Account
+                Añadir Cuenta
               </Button>
             </div>
           </div>
 
-          {/* Accounts grid */}
+          {/* Grid de Cuentas */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredAccounts.map((account) => (
               <AccountCard
                 key={account.id}
                 account={account}
                 onEdit={handleEditAccount}
-                onDelete={handleDeleteAccount}
+                onDelete={setDeletingAccount} // 🌟 Setea la cuenta a eliminar abriendo el nuevo modal
                 onAssign={handleAssign}
                 onUnassign={handleUnassign}
               />
             ))}
           </div>
 
-          {/* Empty state */}
+          {/* Empty State */}
           {filteredAccounts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
                 <Search className="size-8 text-muted-foreground" />
               </div>
-              <h3 className="mb-1 text-lg font-medium">No accounts found</h3>
+              <h3 className="mb-1 text-lg font-medium">No se encontraron cuentas</h3>
               <p className="text-sm text-muted-foreground">
                 {searchQuery || platformFilter !== "All"
-                  ? "Try adjusting your search or filter."
-                  : "Add your first streaming account to get started."}
+                  ? "Prueba cambiando los términos de búsqueda o filtros."
+                  : "Añade tu primera cuenta de streaming para empezar."}
               </p>
-              {!searchQuery && platformFilter === "All" && (
-                <Button
-                  className="mt-4"
-                  onClick={() => setIsAddModalOpen(true)}
-                >
-                  <Plus className="mr-2 size-4" />
-                  Add Account
-                </Button>
-              )}
             </div>
           )}
         </main>
       </div>
 
-      {/* Add Account Modal */}
+      {/* 🌟 MODAL UNIFICADO: Sirve para Crear (limpio) y Editar (con initialData) */}
       <AddAccountModal
-        open={isAddModalOpen}
-        onOpenChange={setIsAddModalOpen}
-        onSubmit={handleAddAccount}
+        open={isAddModalOpen || !!editingAccount}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setIsAddModalOpen(false)
+            setEditingAccount(null)
+          }
+        }}
+        onSubmit={handleAddAccountSubmit}
+        initialData={editingAccount ?? undefined}
       />
 
-      {/* Assign Client Modal */}
+      {/* 🌟 MODAL DE CONFIRMACIÓN DE BORRADO */}
+      <DeleteAccountDialog
+        open={!!deletingAccount}
+        onOpenChange={(isOpen) => !isOpen && setDeletingAccount(null)}
+        onConfirm={handleDeleteAccountConfirm}
+        accountEmail={deletingAccount?.email ?? ""}
+      />
+
+      {/* Modal de Asignación */}
       <AssignClientModal
         open={isAssignModalOpen}
         onOpenChange={setIsAssignModalOpen}

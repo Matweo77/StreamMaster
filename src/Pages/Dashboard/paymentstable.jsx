@@ -29,7 +29,7 @@ const statusConfig = {
 }
 
 const platformColors = {
-  Netflix: "bg-red-500",
+  Neflix: "bg-red-500",
   "Disney+": "bg-blue-600",
   "HBO Max": "bg-purple-600",
   Spotify: "bg-green-500",
@@ -40,7 +40,7 @@ const payments = [
   {
     id: "1",
     cliente: "Juan Perez",
-    plataforma: "Netflix",
+    plataforma: "Neflix",
     perfil: "Perfil 2",
     proximoPago: "05 abr 2026",
     estado: "proximo",
@@ -64,7 +64,7 @@ const payments = [
   {
     id: "4",
     cliente: "Ana Martinez",
-    plataforma: "Netflix",
+    plataforma: "Neflix",
     perfil: "Perfil 4",
     proximoPago: "01 abr 2026",
     estado: "pagado",
@@ -88,7 +88,7 @@ const payments = [
   {
     id: "7",
     cliente: "Pedro Gomez",
-    plataforma: "Netflix",
+    plataforma: "Neflix",
     perfil: "Perfil 1",
     proximoPago: "10 abr 2026",
     estado: "proximo",

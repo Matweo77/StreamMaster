@@ -53,7 +53,7 @@ const paymentsData = [
   {
     id: 1,
     client: "Juan Perez",
-    platform: "Netflix",
+    platform: "Neflix",
     screem: "juan@gmail.com",
     profile: "Profile 2",
     amount: 5,

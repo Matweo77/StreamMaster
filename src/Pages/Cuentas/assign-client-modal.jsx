@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+
 import {
   Dialog,
   DialogContent,
@@ -9,36 +10,67 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function AssignClientModal({ open, onOpenChange, onSubmit, profileInfo }) {
+export function AssignClientModal({
+  open,
+  onOpenChange,
+  profileInfo,
+  onSubmit,
+}) {
   const [clientName, setClientName] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  // Limpiar el input cuando el modal cambie de estado (abrir/cerrar)
+  useEffect(() => {
+    if (!open) {
+      setClientName("")
+    }
+  }, [open])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSubmit(clientName)
-    setClientName("")
-    onOpenChange(false)
+
+    if (!profileInfo || !clientName.trim()) return
+
+    try {
+      setLoading(true)
+
+      // 🌟 Llama a handleAssignSubmit heredado en 'onSubmit' desde AccountsPage
+      await onSubmit(clientName.trim())
+
+      // Cerrar modal (la limpieza del input ocurre en el useEffect superior)
+      onOpenChange(false)
+    } catch (error) {
+      console.error("❌ Error al procesar la asignación del cliente:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-100">
+      <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Assign Client</DialogTitle>
+          <DialogTitle>Asignar Cliente</DialogTitle>
           <DialogDescription>
-            Assign a client to {profileInfo?.profileName || "this profile"}.
+            Asigna un cliente al cupo del{" "}
+            <span className="font-semibold text-primary">
+              {profileInfo?.profileName || "este perfil"}
+            </span>.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="clientName">Client Name</Label>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="clientName">Nombre del Cliente</Label>
             <Input
               id="clientName"
               type="text"
-              placeholder="Enter client name"
+              placeholder="Ej: Juan Pérez"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               required
@@ -46,15 +78,17 @@ export function AssignClientModal({ open, onOpenChange, onSubmit, profileInfo })
             />
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              Cancelar
             </Button>
-            <Button type="submit">Assign Client</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Asignando..." : "Asignar Cliente"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
