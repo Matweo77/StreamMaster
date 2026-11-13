@@ -6,7 +6,8 @@ import { Plus, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { ClientsTable } from "./client-table"
-import { ClientDialog } from "./client-dialog"
+import { CreateClientDialog } from "./CreateClientDialog"
+import { EditClientDialog } from "./EditClientDialog"
 import { DeleteClientDialog } from "./delete-client-dialog"
 
 import {
@@ -25,7 +26,6 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState(null)
   const [deletingClient, setDeletingClient] = useState(null)
 
-  // 🌟 Estado para guardar las cuentas del sistema para el primer selector
   const [cuentas, setCuentas] = useState([])
 
   const loadAccountsData = async () => {
@@ -54,7 +54,6 @@ export default function ClientsPage() {
     loadAccountsData()
   }, [])
 
-  // 🌟 Recuperamos el bloque useMemo que se había perdido para el filtro de búsquedas
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients
 
@@ -73,7 +72,7 @@ export default function ClientsPage() {
       setLoading(true)
       await createClientWithSubscription(data)
       await fetchClients()
-      await loadAccountsData() // Recargamos cuentas por si cambió la disponibilidad
+      await loadAccountsData()
       setIsCreateDialogOpen(false)
     } catch (error) {
       console.error("❌ Error creando cliente:", error)
@@ -83,46 +82,36 @@ export default function ClientsPage() {
   }
 
   const handleEditClient = async (data) => {
-  if (!editingClient) return
+    if (!editingClient) return
 
-  try {
-    setLoading(true) // Activamos el indicador de carga
-    
-    // Mandamos el ID de la suscripción y el formulario del modal
-    await updateClientWithSubscription(editingClient.id, data)
-    
-    // Recargamos todo desde Supabase para tener la data fresca y real
-    await fetchClients()
-    await loadAccountsData()
-    
-    setEditingClient(null) // Cerramos el modal
-  } catch (error) {
-    console.error("❌ Error editando cliente en Supabase:", error)
-  } finally {
-    setLoading(false)
+    try {
+      setLoading(true)
+      await updateClientWithSubscription(editingClient.id, data)
+      await fetchClients()
+      await loadAccountsData()
+      setEditingClient(null)
+    } catch (error) {
+      console.error("❌ Error editando cliente en Supabase:", error)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   const handleDeleteClient = async () => {
-  if (!deletingClient) return
+    if (!deletingClient) return
 
-  try {
-    setLoading(true) // Activamos el estado de carga en la pantalla
-
-    // Pasamos el ID de la fila (que es el ID de la suscripción) para hacer el borrado
-    await deleteClientWithSubscription(deletingClient.id)
-
-    // Recargamos los datos frescos directamente desde la base de datos
-    await fetchClients()
-    await loadAccountsData() // Recargamos cuentas porque ahora hay un perfil libre nuevo
-
-    setDeletingClient(null) // Cerramos el modal de confirmación
-  } catch (error) {
-    console.error("❌ Error eliminando cliente en Supabase:", error)
-  } finally {
-    setLoading(false)
+    try {
+      setLoading(true)
+      await deleteClientWithSubscription(deletingClient.id)
+      await fetchClients()
+      await loadAccountsData()
+      setDeletingClient(null)
+    } catch (error) {
+      console.error("❌ Error eliminando cliente en Supabase:", error)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   return (
     <main className="min-h-screen bg-background">
@@ -151,27 +140,35 @@ export default function ClientsPage() {
           <p>Cargando...</p>
         ) : (
           <ClientsTable
-            clients={filteredClients} // 🔥 ¡Solucionado! Ya existe la definición arriba
-            onEdit={setEditingClient}
+            clients={filteredClients}
+            onEdit={(client) => {
+              setEditingClient({
+                ...client,
+                accountId: client.accountId || client.account_id || "",
+                profileId: client.profileId || client.profile_id || "",
+                pantalla: client.pantalla || client.profile_name || "",
+                // 🌟 ASEGÚRATE DE INCLUIR ESTA LÍNEA PARA QUE PASE EL PRICE REAL DE SUPABASE:
+                price: client.price !== undefined ? client.price : (client.amount || ""),
+              })
+            }}
             onDelete={setDeletingClient}
           />
         )}
 
-        {/* Le pasamos la lista mapeada con IDs a tus modales */}
-        <ClientDialog
+{/* Modal exclusivo de Creación */}
+        <CreateClientDialog
           open={isCreateDialogOpen}
           onOpenChange={setIsCreateDialogOpen}
           onSubmit={handleCreateClient}
-          title="Nuevo Cliente"
           pantallas={cuentas} 
         />
 
-        <ClientDialog
+        {/* Modal exclusivo de Edición */}
+        <EditClientDialog
           open={!!editingClient}
           onOpenChange={(o) => !o && setEditingClient(null)}
           onSubmit={handleEditClient}
-          initialData={editingClient ?? undefined}
-          title="Editar Cliente"
+          clientData={editingClient}
           pantallas={cuentas}
         />
 

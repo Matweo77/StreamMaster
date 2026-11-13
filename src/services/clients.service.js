@@ -248,3 +248,17 @@ export const deleteClientWithSubscription = async (subscriptionId) => {
 
   return true;
 };
+
+
+export const getAllProfilesByAccount = async (accountId) => {
+  if (!accountId) return []
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, profile_name, status")
+    .eq("account_id", accountId)
+
+  if (error) throw error
+
+  return data // Devuelve todos los perfiles de la cuenta
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -32,45 +32,24 @@ const emptyFormData = {
   estado: "active",
 }
 
-export function ClientDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-  initialData,
-  title,
-  pantallas = [], 
-}) {
+export function CreateClientDialog({ open, onOpenChange, onSubmit, pantallas = [] }) {
   const [formData, setFormData] = useState(emptyFormData)
-  const [perfilesFiltrados, setPerfilesFiltrados] = useState([]) 
+  const [perfilesFiltrados, setPerfilesFiltrados] = useState([])
   const [loadingProfiles, setLoadingProfiles] = useState(false)
-  // Estado para prevenir múltiples envíos
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // 1. Resetear o cargar datos iniciales
+  // Limpiar al abrir
   useEffect(() => {
     if (open) {
-      if (initialData) {
-        const { id, ...rest } = initialData
-        setFormData({
-          nombre: rest.nombre || "",
-          whatsapp: rest.whatsapp || "",
-          accountId: rest.accountId || "",
-          profileId: rest.profileId || "",
-          amount: rest.amount || "",
-          proximoPago: rest.proximoPago || "",
-          estado: rest.estado || "active",
-        })
-      } else {
-        setFormData(emptyFormData)
-        setPerfilesFiltrados([])
-      }
-      setIsSubmitting(false) // Resetear estado de envío al abrir
+      setFormData(emptyFormData)
+      setPerfilesFiltrados([])
+      setIsSubmitting(false)
     }
-  }, [open, initialData])
+  }, [open])
 
-  // 2. EFECTO CASCADA
+  // Efecto cascada limpio para buscar perfiles disponibles al elegir cuenta
   useEffect(() => {
-    const fetchPerfilesDeCuenta = async () => {
+    const fetchPerfiles = async () => {
       if (!formData.accountId) {
         setPerfilesFiltrados([])
         return
@@ -79,62 +58,47 @@ export function ClientDialog({
       setLoadingProfiles(true)
       try {
         const data = await getAvailableProfilesByAccount(formData.accountId)
-        let listadoFinal = [...data]
-
-        if (initialData && formData.accountId === initialData.accountId && initialData.profileId) {
-          const existePerfilActual = listadoFinal.some(p => p.id === initialData.profileId)
-          if (!existePerfilActual) {
-            listadoFinal.unshift({
-              id: initialData.profileId,
-              profile_name: initialData.profileName || "Perfil Actual (Asignado)" 
-            })
-          }
-        }
-        setPerfilesFiltrados(listadoFinal)
+        setPerfilesFiltrados(data)
       } catch (error) {
-        console.error("Error filtrando perfiles:", error)
+        console.error("Error cargando perfiles libres:", error)
       } finally {
         setLoadingProfiles(false)
       }
     }
 
-    fetchPerfilesDeCuenta()
-  }, [formData.accountId, initialData])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    
-    // Evitar múltiples envíos si ya se está procesando
-    if (isSubmitting) return
-
-    setIsSubmitting(true)
-    
-    try {
-      await onSubmit(initialData ? { ...formData, id: initialData.id } : formData)
-      onOpenChange(false) // Solo cerrar si la operación fue exitosa
-    } catch (error) {
-      console.error("Error al guardar cliente:", error)
-      // Opcional: mostrar un toast de error aquí
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+    fetchPerfiles()
+  }, [formData.accountId])
 
   const handleChange = (field, value) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value }
       if (field === "accountId") {
-        updated.profileId = ""
+        updated.profileId = "" // Resetear perfil si cambia de cuenta
       }
       return updated
     })
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    try {
+      await onSubmit(formData)
+      onOpenChange(false)
+    } catch (error) {
+      console.error("Error al crear cliente:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isValid =
     formData.nombre.trim() &&
     formData.whatsapp.trim() &&
     formData.accountId &&
-    formData.profileId && 
+    formData.profileId &&
     formData.amount &&
     formData.proximoPago.trim()
 
@@ -142,51 +106,44 @@ export function ClientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>Nuevo Cliente</DialogTitle>
           <DialogDescription>
-            {initialData
-              ? "Modifica los datos del cliente y reasigna su cuenta o pantalla libre."
-              : "Completa el formulario para agregar un nuevo cliente."}
+            Completa el formulario para registrar un nuevo cliente y asignarle una pantalla.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            {/* NOMBRE */}
             <div className="grid gap-2">
-              <Label htmlFor="nombre">Nombre completo</Label>
+              <Label>Nombre completo</Label>
               <Input
-                id="nombre"
                 value={formData.nombre}
                 onChange={(e) => handleChange("nombre", e.target.value)}
                 placeholder="Ej. Juan Pérez"
               />
             </div>
 
-            {/* WHATSAPP */}
             <div className="grid gap-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Label>WhatsApp</Label>
               <Input
-                id="whatsapp"
                 value={formData.whatsapp}
                 onChange={(e) => handleChange("whatsapp", e.target.value)}
                 placeholder="Ej. 3001234567"
               />
             </div>
 
-            {/* SELECTOR CUENTA */}
             <div className="grid gap-2">
               <Label>1. Seleccionar Cuenta / Pantalla</Label>
-              <Select
+              <Select 
                 value={formData.accountId}
                 onValueChange={(v) => handleChange("accountId", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-100">
                   <SelectValue placeholder="Busca la cuenta del servicio" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent >
                   {pantallas.map((acc) => (
-                    <SelectItem key={acc.id} value={acc.id}>
+                    <SelectItem  key={acc.id} value={String(acc.id)}>
                       {acc.label}
                     </SelectItem>
                   ))}
@@ -194,18 +151,15 @@ export function ClientDialog({
               </Select>
             </div>
 
-            {/* SELECTOR PERFILES */}
             <div className="grid gap-2">
-              <Label>2. Perfiles Disponibles en esta Cuenta</Label>
+              <Label>2. Perfiles Disponibles</Label>
               <Select
                 value={formData.profileId}
                 onValueChange={(v) => handleChange("profileId", v)}
                 disabled={!formData.accountId || loadingProfiles}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={
-                    loadingProfiles ? "Buscando cupos..." : "Elige un perfil"
-                  } />
+                  <SelectValue placeholder={loadingProfiles ? "Buscando cupos..." : "Elige un perfil"} />
                 </SelectTrigger>
                 <SelectContent>
                   {perfilesFiltrados.length === 0 ? (
@@ -214,7 +168,7 @@ export function ClientDialog({
                     </div>
                   ) : (
                     perfilesFiltrados.map((perf) => (
-                      <SelectItem key={perf.id} value={perf.id}>
+                      <SelectItem key={perf.id} value={String(perf.id)}>
                         {perf.profile_name}
                       </SelectItem>
                     ))
@@ -223,7 +177,6 @@ export function ClientDialog({
               </Select>
             </div>
 
-            {/* MONTO Y FECHA */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Monto</Label>
@@ -244,7 +197,6 @@ export function ClientDialog({
               </div>
             </div>
 
-            {/* ESTADO */}
             <div className="grid gap-2">
               <Label>Estado de Suscripción</Label>
               <Select
@@ -270,9 +222,7 @@ export function ClientDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={!isValid || isSubmitting}>
-              {isSubmitting 
-                ? (initialData ? "Guardando..." : "Creando...") 
-                : (initialData ? "Guardar cambios" : "Crear cliente")}
+              {isSubmitting ? "Creando..." : "Crear cliente"}
             </Button>
           </DialogFooter>
         </form>
